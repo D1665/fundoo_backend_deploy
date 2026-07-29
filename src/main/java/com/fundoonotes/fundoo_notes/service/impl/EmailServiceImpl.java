@@ -18,9 +18,15 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
+    @Value("${app.backend-url}")
+    private String backendUrl;
+
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
-        String link = "http://localhost:8080/api/users/verify?token=" + token;
+        String link = backendUrl + "/api/users/verify?token=" + token;
         sendEmail(toEmail,
                 "Verify Your Fundoo Notes Account",
                 "Hello,\n\nClick to verify your account:\n\n"
@@ -31,7 +37,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendPasswordResetEmail(String toEmail, String token) {
 
-        String link = "http://localhost:4200/reset-password?token=" + token;
+        String link = frontendUrl + "/reset-password?token=" + token;
 
         String html = """
 <!DOCTYPE html>
@@ -150,7 +156,7 @@ Regards,<br>
     @Override
     public void sendReminderEmail(String toEmail, String noteTitle) {
 
-        String link = "http://localhost:4200/signin";
+        String link = frontendUrl + "/signin";
 
         String html = """
 <!DOCTYPE html>
@@ -279,7 +285,7 @@ Regards,<br>
     @Override
     public void sendCollaboratorEmail(String toEmail, String ownerEmail, String noteTitle) {
 
-        String link = "http://localhost:4200/signin";
+        String link = frontendUrl + "/signin";
 
         String html = """
 <!DOCTYPE html>
