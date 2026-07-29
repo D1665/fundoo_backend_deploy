@@ -67,6 +67,8 @@ jwt:
 
 # ---------- APP-SPECIFIC ----------
 app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200}
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/callback}
 
