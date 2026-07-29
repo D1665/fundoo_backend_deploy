@@ -34,6 +34,9 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.resend.api-key:}")
     private String resendApiKey;
 
+    @Value("${app.resend.from:onboarding@resend.dev}")
+    private String resendFrom;
+
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
         String link = backendUrl + "/api/users/verify?token=" + token;
@@ -478,7 +481,7 @@ Regards,<br>
             }
             System.out.println("Email sent successfully via Brevo API!");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send email via Brevo API", e);
+            throw new RuntimeException("Failed to send email via Brevo API: " + e.getMessage(), e);
         }
     }
 
@@ -489,7 +492,7 @@ Regards,<br>
                                             .replace("\n", "\\n")
                                             .replace("\r", "\\r");
 
-            String sender = fromEmail.contains("@") ? fromEmail : "onboarding@resend.dev";
+            String sender = resendFrom;
 
             String jsonPayload = "{"
                     + "\"from\":\"" + sender + "\","
@@ -509,11 +512,11 @@ Regards,<br>
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 300) {
-                throw new RuntimeException("Resend API returned error status: " + response.statusCode() + " - " + response.body());
+                throw new RuntimeException("Resend API error response: " + response.body());
             }
             System.out.println("Email sent successfully via Resend API!");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send email via Resend API", e);
+            throw new RuntimeException("Failed to send email via Resend API: " + e.getMessage(), e);
         }
     }
 }

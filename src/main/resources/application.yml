@@ -74,6 +74,11 @@ app:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/callback}
   frontend-url: ${FRONTEND_URL:http://localhost:4200}
   backend-url: ${BACKEND_URL:http://localhost:8086}
+  brevo:
+    api-key: ${APP_BREVO_API_KEY:}
+  resend:
+    api-key: ${APP_RESEND_API_KEY:}
+    from: ${APP_RESEND_FROM:onboarding@resend.dev}
 
 # ---------- SWAGGER / OPENAPI ----------
 springdoc:
