@@ -1,6 +1,10 @@
 package com.fundoonotes.fundoo_notes.service.impl;
 
 import com.fundoonotes.fundoo_notes.service.EmailService;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.mail.MessagingException;
@@ -23,6 +27,12 @@ public class EmailServiceImpl implements EmailService {
 
     @Value("${app.backend-url}")
     private String backendUrl;
+
+    @Value("${app.brevo.api-key:}")
+    private String brevoApiKey;
+
+    @Value("${app.resend.api-key:}")
+    private String resendApiKey;
 
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
@@ -414,24 +424,96 @@ Regards,<br>
     private void sendEmail(String to,
                            String subject,
                            String body) {
+        if (resendApiKey != null && !resendApiKey.trim().isEmpty()) {
+            sendEmailViaResend(to, subject, body);
+            return;
+        }
+
+        if (brevoApiKey != null && !brevoApiKey.trim().isEmpty()) {
+            sendEmailViaBrevo(to, subject, body);
+            return;
+        }
 
         try {
-
             MimeMessage message = mailSender.createMimeMessage();
-
             MimeMessageHelper helper =
                     new MimeMessageHelper(message, true, "UTF-8");
-
             helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject(subject);
-
             helper.setText(body, true);
-
             mailSender.send(message);
-
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send email", e);
+        }
+    }
+
+    private void sendEmailViaBrevo(String to, String subject, String htmlContent) {
+        try {
+            String escapedBody = htmlContent.replace("\\", "\\\\")
+                                            .replace("\"", "\\\"")
+                                            .replace("\n", "\\n")
+                                            .replace("\r", "\\r");
+
+            String jsonPayload = "{"
+                    + "\"sender\":{\"name\":\"Fundoo Notes\",\"email\":\"" + fromEmail + "\"},"
+                    + "\"to\":[{\"email\":\"" + to + "\"}],"
+                    + "\"subject\":\"" + subject + "\","
+                    + "\"htmlContent\":\"" + escapedBody + "\""
+                    + "}";
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("api-key", brevoApiKey)
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 300) {
+                throw new RuntimeException("Brevo API returned error status: " + response.statusCode() + " - " + response.body());
+            }
+            System.out.println("Email sent successfully via Brevo API!");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send email via Brevo API", e);
+        }
+    }
+
+    private void sendEmailViaResend(String to, String subject, String htmlContent) {
+        try {
+            String escapedBody = htmlContent.replace("\\", "\\\\")
+                                            .replace("\"", "\\\"")
+                                            .replace("\n", "\\n")
+                                            .replace("\r", "\\r");
+
+            String sender = fromEmail.contains("@") ? fromEmail : "onboarding@resend.dev";
+
+            String jsonPayload = "{"
+                    + "\"from\":\"" + sender + "\","
+                    + "\"to\":[\"" + to + "\"],"
+                    + "\"subject\":\"" + subject + "\","
+                    + "\"html\":\"" + escapedBody + "\""
+                    + "}";
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 300) {
+                throw new RuntimeException("Resend API returned error status: " + response.statusCode() + " - " + response.body());
+            }
+            System.out.println("Email sent successfully via Resend API!");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send email via Resend API", e);
         }
     }
 }
