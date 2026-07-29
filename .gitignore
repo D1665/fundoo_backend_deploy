@@ -1,0 +1,17 @@
+# Target folder
+target/
+
+# IDE files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+bin/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env

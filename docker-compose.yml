@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: fundoo_postgres
+    environment:
+      POSTGRES_DB: fundoodb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sirsiya}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - fundoo-network
+    restart: always
+
+  # Redis Cache Service
+  redis:
+    image: redis:7-alpine
+    container_name: fundoo_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fundoo-network
+    restart: always
+
+  # RabbitMQ Message Broker Service
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: fundoo_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" # RabbitMQ Management Dashboard
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    networks:
+      - fundoo-network
+    restart: always
+
+  # Spring Boot Application Service
+  app:
+    build: .
+    container_name: fundoo_app
+    ports:
+      - "8086:8086"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    environment:
+      - SERVER_PORT=8086
+      - DB_URL=jdbc:postgresql://postgres:5432/fundoodb
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-sirsiya}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+    networks:
+      - fundoo-network
+    restart: always
+
+volumes:
+  pgdata:
+
+networks:
+  fundoo-network:
+    driver: bridge
