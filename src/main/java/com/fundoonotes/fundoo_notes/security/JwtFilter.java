@@ -41,39 +41,50 @@ public class JwtFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
 
+            // STEP 0 — REJECT BLACKLISTED (LOGGED OUT) TOKENS (WITH REDIS FALLBACK)
+            boolean isBlacklisted = false;
             try {
-                // STEP 0 — REJECT BLACKLISTED (LOGGED OUT) TOKENS
                 if (Boolean.TRUE.equals(redisTemplate.hasKey("BLACKLIST:" + token))) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("Token has been logged out");
-                    return;
-                }
-
-                // STEP 1 — CHECK REDIS CACHE FIRST
-                String cachedEmail = redisTemplate.opsForValue()
-                        .get("TOKEN:" + token);
-
-                if (cachedEmail != null) {
-                    // Token found in Redis cache — use it directly
-                    // No need to parse JWT again — FASTER!
-                    email = cachedEmail;
-                } else {
-                    // Token not in cache — parse JWT
-                    email = jwtUtil.extractEmail(token);
-
-                    if (email != null && jwtUtil.isTokenValid(token)) {
-                        // STEP 2 — SAVE TO REDIS CACHE for next requests
-                        // Expires in 24 hours same as JWT
-                        redisTemplate.opsForValue().set(
-                                "TOKEN:" + token,
-                                email,
-                                24,
-                                TimeUnit.HOURS
-                        );
-                    }
+                    isBlacklisted = true;
                 }
             } catch (Exception e) {
-                // Invalid token — continue without setting auth
+                System.err.println("[JwtFilter] Redis error checking blacklist: " + e.getMessage());
+            }
+
+            if (isBlacklisted) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Token has been logged out");
+                return;
+            }
+
+            // STEP 1 — CHECK REDIS CACHE FIRST
+            try {
+                email = redisTemplate.opsForValue().get("TOKEN:" + token);
+            } catch (Exception e) {
+                System.err.println("[JwtFilter] Redis error getting cached token: " + e.getMessage());
+            }
+
+            // STEP 2 — FALLBACK TO DIRECT JWT PARSING IF CACHE MISSED OR REDIS DOWN
+            if (email == null) {
+                try {
+                    if (jwtUtil.isTokenValid(token)) {
+                        email = jwtUtil.extractEmail(token);
+
+                        // STEP 3 — OPTIONALLY CACHE IN REDIS
+                        try {
+                            redisTemplate.opsForValue().set(
+                                    "TOKEN:" + token,
+                                    email,
+                                    24,
+                                    TimeUnit.HOURS
+                            );
+                        } catch (Exception re) {
+                            // Ignore caching errors if Redis is down
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[JwtFilter] JWT parsing/validation failed: " + e.getMessage());
+                }
             }
         }
 
