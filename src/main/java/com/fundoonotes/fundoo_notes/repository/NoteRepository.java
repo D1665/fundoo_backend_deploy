@@ -2,6 +2,7 @@ package com.fundoonotes.fundoo_notes.repository;
 
 import com.fundoonotes.fundoo_notes.model.Note;
 import com.fundoonotes.fundoo_notes.model.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,21 +16,26 @@ import java.util.Optional;
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
     // Active notes
+    @EntityGraph(attributePaths = {"labels", "user"})
     List<Note> findByUserAndIsTrashedFalseAndIsArchivedFalse(User user);
 
     // Archived notes
+    @EntityGraph(attributePaths = {"labels", "user"})
     List<Note> findByUserAndIsArchivedTrueAndIsTrashedFalse(User user);
 
     // Trashed notes
+    @EntityGraph(attributePaths = {"labels", "user"})
     List<Note> findByUserAndIsTrashedTrue(User user);
 
     // Pinned notes
+    @EntityGraph(attributePaths = {"labels", "user"})
     List<Note> findByUserAndIsPinnedTrueAndIsTrashedFalse(User user);
 
     // Find note by id and user
     Optional<Note> findByIdAndUser(Long id, User user);
 
     // Search by title or content — clean name using @Query
+    @EntityGraph(attributePaths = {"labels", "user"})
     @Query("SELECT n FROM Note n WHERE n.user = :user " +
             "AND n.isTrashed = false " +
             "AND n.isArchived = false " +
@@ -39,6 +45,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
                            @Param("keyword") String keyword);
 
     // Filter by color
+    @EntityGraph(attributePaths = {"labels", "user"})
     List<Note> findByUserAndColorAndIsTrashedFalseAndIsArchivedFalse(
             User user, String color);
 

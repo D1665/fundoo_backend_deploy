@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,6 +69,54 @@ public class NoteServiceImpl implements NoteService {
         return dto;
     }
 
+    // CONVERT LIST OF NOTES TO RESPONSE DTOS (BULK LOAD - NO N+1 SELECTS)
+    private List<NoteResponseDTO> toDTOList(List<Note> notes, String fallbackOwnerEmail) {
+        if (notes == null || notes.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Collaborator> allCollaborators = collaboratorRepository.findByNoteIn(notes);
+        Map<Long, List<Collaborator>> collaboratorsByNoteId = allCollaborators.stream()
+                .collect(Collectors.groupingBy(c -> c.getNote().getId()));
+
+        List<NoteResponseDTO> dtos = new ArrayList<>();
+        for (Note note : notes) {
+            NoteResponseDTO dto = new NoteResponseDTO();
+            dto.setId(note.getId());
+            dto.setTitle(note.getTitle());
+            dto.setContent(note.getContent());
+            dto.setColor(note.getColor());
+            dto.setPinned(note.isPinned());
+            dto.setArchived(note.isArchived());
+            dto.setTrashed(note.isTrashed());
+            dto.setReminder(note.getReminder());
+            dto.setCreatedAt(note.getCreatedAt());
+            dto.setUpdatedAt(note.getUpdatedAt());
+            dto.setOwnerEmail(fallbackOwnerEmail != null ? fallbackOwnerEmail : (note.getUser() != null ? note.getUser().getEmail() : ""));
+
+            List<LabelResponseDTO> labelDTOs = note.getLabels()
+                    .stream()
+                    .map(label -> new LabelResponseDTO(label.getId(), label.getName()))
+                    .collect(Collectors.toList());
+            dto.setLabels(labelDTOs);
+
+            List<Collaborator> collaborators = collaboratorsByNoteId.getOrDefault(note.getId(), new ArrayList<>());
+            List<CollaboratorResponseDTO> collaboratorDTOs = collaborators.stream()
+                    .map(c -> new CollaboratorResponseDTO(
+                            c.getId(),
+                            c.getUser().getEmail(),
+                            c.getUser().getFirstName(),
+                            c.getUser().getLastName(),
+                            c.getPermission().name()
+                    ))
+                    .collect(Collectors.toList());
+            dto.setCollaborators(collaboratorDTOs);
+
+            dtos.add(dto);
+        }
+        return dtos;
+    }
+
     // GET LOGGED IN USER
     private User getUser(String email) {
         return userRepository.findByEmail(email)
@@ -109,11 +159,8 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public List<NoteResponseDTO> getAllNotes(String email) {
         User user = getUser(email);
-        return noteRepository
-                .findByUserAndIsTrashedFalseAndIsArchivedFalse(user)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.findByUserAndIsTrashedFalseAndIsArchivedFalse(user);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override
@@ -179,50 +226,36 @@ public class NoteServiceImpl implements NoteService {
     @Override
     public List<NoteResponseDTO> getPinnedNotes(String email) {
         User user = getUser(email);
-        return noteRepository
-                .findByUserAndIsPinnedTrueAndIsTrashedFalse(user)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.findByUserAndIsPinnedTrueAndIsTrashedFalse(user);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override
     public List<NoteResponseDTO> getArchivedNotes(String email) {
         User user = getUser(email);
-        return noteRepository
-                .findByUserAndIsArchivedTrueAndIsTrashedFalse(user)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.findByUserAndIsArchivedTrueAndIsTrashedFalse(user);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override
     public List<NoteResponseDTO> getTrashedNotes(String email) {
         User user = getUser(email);
-        return noteRepository
-                .findByUserAndIsTrashedTrue(user)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.findByUserAndIsTrashedTrue(user);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override
     public List<NoteResponseDTO> searchNotes(String keyword, String email) {
         User user = getUser(email);
-        return noteRepository.searchNotes(user, keyword)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.searchNotes(user, keyword);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override
     public List<NoteResponseDTO> filterByColor(String color, String email) {
         User user = getUser(email);
-        return noteRepository
-                .findByUserAndColorAndIsTrashedFalseAndIsArchivedFalse(user, color)
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Note> notes = noteRepository.findByUserAndColorAndIsTrashedFalseAndIsArchivedFalse(user, color);
+        return toDTOList(notes, user.getEmail());
     }
 
     @Override

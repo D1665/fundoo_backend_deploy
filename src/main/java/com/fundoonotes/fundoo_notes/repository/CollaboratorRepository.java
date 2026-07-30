@@ -18,5 +18,7 @@ public interface CollaboratorRepository extends JpaRepository<Collaborator, Long
 
     List<Collaborator> findByUser(User user);
 
+    List<Collaborator> findByNoteIn(List<Note> notes);
+
     void deleteByNoteAndUser(Note note, User user);
 }
