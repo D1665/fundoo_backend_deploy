@@ -137,9 +137,13 @@ public class UserServiceImpl implements UserService {
     // so JwtFilter rejects it even though it hasn't expired yet
     @Override
     public String logout(String token) {
-        redisTemplate.delete("TOKEN:" + token);
-        redisTemplate.opsForValue().set(
-                "BLACKLIST:" + token, "true", 24, TimeUnit.HOURS);
+        try {
+            redisTemplate.delete("TOKEN:" + token);
+            redisTemplate.opsForValue().set(
+                    "BLACKLIST:" + token, "true", 24, TimeUnit.HOURS);
+        } catch (Exception e) {
+            System.err.println("[UserServiceImpl] Redis error during logout: " + e.getMessage());
+        }
         return "Logged out successfully.";
     }
 }

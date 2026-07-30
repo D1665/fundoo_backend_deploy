@@ -25,6 +25,8 @@ public class JwtFilter extends OncePerRequestFilter {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    private static volatile boolean isRedisAvailable = true;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -43,12 +45,15 @@ public class JwtFilter extends OncePerRequestFilter {
 
             // STEP 0 — REJECT BLACKLISTED (LOGGED OUT) TOKENS (WITH REDIS FALLBACK)
             boolean isBlacklisted = false;
-            try {
-                if (Boolean.TRUE.equals(redisTemplate.hasKey("BLACKLIST:" + token))) {
-                    isBlacklisted = true;
+            if (isRedisAvailable) {
+                try {
+                    if (Boolean.TRUE.equals(redisTemplate.hasKey("BLACKLIST:" + token))) {
+                        isBlacklisted = true;
+                    }
+                } catch (Exception e) {
+                    isRedisAvailable = false;
+                    System.err.println("[JwtFilter] Redis detected offline. Switching to 100% stateless JWT bypass: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                System.err.println("[JwtFilter] Redis error checking blacklist: " + e.getMessage());
             }
 
             if (isBlacklisted) {
@@ -58,10 +63,13 @@ public class JwtFilter extends OncePerRequestFilter {
             }
 
             // STEP 1 — CHECK REDIS CACHE FIRST
-            try {
-                email = redisTemplate.opsForValue().get("TOKEN:" + token);
-            } catch (Exception e) {
-                System.err.println("[JwtFilter] Redis error getting cached token: " + e.getMessage());
+            if (isRedisAvailable) {
+                try {
+                    email = redisTemplate.opsForValue().get("TOKEN:" + token);
+                } catch (Exception e) {
+                    isRedisAvailable = false;
+                    System.err.println("[JwtFilter] Redis detected offline. Switching to 100% stateless JWT bypass: " + e.getMessage());
+                }
             }
 
             // STEP 2 — FALLBACK TO DIRECT JWT PARSING IF CACHE MISSED OR REDIS DOWN
@@ -71,15 +79,17 @@ public class JwtFilter extends OncePerRequestFilter {
                         email = jwtUtil.extractEmail(token);
 
                         // STEP 3 — OPTIONALLY CACHE IN REDIS
-                        try {
-                            redisTemplate.opsForValue().set(
-                                    "TOKEN:" + token,
-                                    email,
-                                    24,
-                                    TimeUnit.HOURS
-                            );
-                        } catch (Exception re) {
-                            // Ignore caching errors if Redis is down
+                        if (isRedisAvailable) {
+                            try {
+                                redisTemplate.opsForValue().set(
+                                        "TOKEN:" + token,
+                                        email,
+                                        24,
+                                        TimeUnit.HOURS
+                                );
+                            } catch (Exception re) {
+                                isRedisAvailable = false;
+                            }
                         }
                     }
                 } catch (Exception e) {
