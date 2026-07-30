@@ -1,6 +1,9 @@
 package com.fundoonotes.fundoo_notes.service.impl;
 
 import com.fundoonotes.fundoo_notes.service.EmailService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
+import java.util.List;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -453,17 +456,14 @@ Regards,<br>
 
     private void sendEmailViaBrevo(String to, String subject, String htmlContent) {
         try {
-            String escapedBody = htmlContent.replace("\\", "\\\\")
-                                            .replace("\"", "\\\"")
-                                            .replace("\n", "\\n")
-                                            .replace("\r", "\\r");
-
-            String jsonPayload = "{"
-                    + "\"sender\":{\"name\":\"Fundoo Notes\",\"email\":\"" + fromEmail + "\"},"
-                    + "\"to\":[{\"email\":\"" + to + "\"}],"
-                    + "\"subject\":\"" + subject + "\","
-                    + "\"htmlContent\":\"" + escapedBody + "\""
-                    + "}";
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> payloadMap = Map.of(
+                "sender", Map.of("name", "Fundoo Notes", "email", fromEmail),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "htmlContent", htmlContent
+            );
+            String jsonPayload = mapper.writeValueAsString(payloadMap);
 
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
@@ -487,19 +487,15 @@ Regards,<br>
 
     private void sendEmailViaResend(String to, String subject, String htmlContent) {
         try {
-            String escapedBody = htmlContent.replace("\\", "\\\\")
-                                            .replace("\"", "\\\"")
-                                            .replace("\n", "\\n")
-                                            .replace("\r", "\\r");
-
+            ObjectMapper mapper = new ObjectMapper();
             String sender = resendFrom;
-
-            String jsonPayload = "{"
-                    + "\"from\":\"" + sender + "\","
-                    + "\"to\":[\"" + to + "\"],"
-                    + "\"subject\":\"" + subject + "\","
-                    + "\"html\":\"" + escapedBody + "\""
-                    + "}";
+            Map<String, Object> payloadMap = Map.of(
+                "from", sender,
+                "to", List.of(to),
+                "subject", subject,
+                "html", htmlContent
+            );
+            String jsonPayload = mapper.writeValueAsString(payloadMap);
 
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
