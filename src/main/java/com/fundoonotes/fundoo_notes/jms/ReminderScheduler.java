@@ -25,19 +25,6 @@ public class ReminderScheduler {
 
         System.out.println("Reminders check: " + LocalDateTime.now());
 
-        // DIAGNOSTIC PRINT: Print all notes that have reminders in the DB
-        try {
-            List<Note> allReminders = noteRepository.findAll().stream()
-                    .filter(n -> n.getReminder() != null)
-                    .collect(java.util.stream.Collectors.toList());
-            System.out.println("DIAGNOSTIC: Total active reminders in DB: " + allReminders.size());
-            for (Note n : allReminders) {
-                System.out.println("DIAGNOSTIC Note ID: " + n.getId() + " | Title: " + n.getTitle() + " | Reminder in DB: " + n.getReminder() + " | IsTrashed: " + n.isTrashed());
-            }
-        } catch (Exception e) {
-            System.out.println("DIAGNOSTIC error: " + e.getMessage());
-        }
-
         List<Note> dueNotes = noteRepository
                 .findByReminderBeforeAndIsTrashedFalse(
                         LocalDateTime.now()
