@@ -24,6 +24,7 @@ public class NoteResponseDTO {
     private LocalDateTime updatedAt;
 
     private List<LabelResponseDTO> labels;
+    private List<CollaboratorResponseDTO> collaborators;
 
     // Set only when this note is returned as part of a "shared with me" list
     private String ownerEmail;

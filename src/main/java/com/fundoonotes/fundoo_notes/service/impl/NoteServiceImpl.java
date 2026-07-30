@@ -4,6 +4,7 @@ import com.fundoonotes.fundoo_notes.dto.LabelResponseDTO;
 import com.fundoonotes.fundoo_notes.dto.NoteDTO;
 import com.fundoonotes.fundoo_notes.dto.NoteResponseDTO;
 import com.fundoonotes.fundoo_notes.dto.ReminderDTO;
+import com.fundoonotes.fundoo_notes.dto.CollaboratorResponseDTO;
 import com.fundoonotes.fundoo_notes.model.Collaborator;
 import com.fundoonotes.fundoo_notes.model.Note;
 import com.fundoonotes.fundoo_notes.model.User;
@@ -49,6 +50,19 @@ public class NoteServiceImpl implements NoteService {
                 .map(label -> new LabelResponseDTO(label.getId(), label.getName()))
                 .collect(Collectors.toList());
         dto.setLabels(labelDTOs);
+
+        List<Collaborator> collaborators = collaboratorRepository.findByNote(note);
+        List<CollaboratorResponseDTO> collaboratorDTOs = collaborators.stream()
+                .map(c -> new CollaboratorResponseDTO(
+                        c.getId(),
+                        c.getUser().getEmail(),
+                        c.getUser().getFirstName(),
+                        c.getUser().getLastName(),
+                        c.getPermission().name()
+                ))
+                .collect(Collectors.toList());
+        dto.setCollaborators(collaboratorDTOs);
+
         return dto;
     }
 
