@@ -14,6 +14,7 @@ import com.fundoonotes.fundoo_notes.repository.UserRepository;
 import com.fundoonotes.fundoo_notes.service.NoteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -135,9 +136,15 @@ public class NoteServiceImpl implements NoteService {
     }
 
     @Override
+    @Transactional
     public String deleteNote(Long noteId, String email) {
         User user = getUser(email);
         Note note = getNoteOfUser(noteId, user);
+        
+        // Delete collaborator relationships first to avoid FK constraint errors
+        List<Collaborator> collaborators = collaboratorRepository.findByNote(note);
+        collaboratorRepository.deleteAll(collaborators);
+
         noteRepository.delete(note);
         return "Note deleted successfully";
     }
