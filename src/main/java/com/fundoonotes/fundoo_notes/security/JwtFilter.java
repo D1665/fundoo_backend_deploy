@@ -27,6 +27,17 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private static volatile boolean isRedisAvailable = true;
 
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        try {
+            redisTemplate.opsForValue().get("PING");
+            System.out.println("[JwtFilter] Redis online check successful.");
+        } catch (Exception e) {
+            isRedisAvailable = false;
+            System.err.println("[JwtFilter] Redis offline during startup. Bypassing Redis cache: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
