@@ -19,7 +19,7 @@ public class ReminderScheduler {
     @Autowired
     private ReminderProducer reminderProducer;
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 1000)
     @Transactional
     public void checkReminders() {
 

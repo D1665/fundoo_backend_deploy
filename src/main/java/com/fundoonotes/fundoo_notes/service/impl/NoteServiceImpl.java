@@ -262,10 +262,14 @@ public class NoteServiceImpl implements NoteService {
     public NoteResponseDTO setReminder(Long noteId, ReminderDTO dto, String email) {
         User user = getUser(email);
         Note note = getEditableNote(noteId, user);
-        if (dto.getReminderTime().isBefore(LocalDateTime.now())) {
+        LocalDateTime reminderTime = dto.getReminderTime();
+        if (reminderTime != null) {
+            reminderTime = reminderTime.withSecond(0).withNano(0);
+        }
+        if (reminderTime == null || reminderTime.isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Reminder time must be in the future");
         }
-        note.setReminder(dto.getReminderTime());
+        note.setReminder(reminderTime);
         note.setReminderSetBy(email);
         return toDTO(noteRepository.save(note));
     }

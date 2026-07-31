@@ -4,6 +4,7 @@ import com.fundoonotes.fundoo_notes.service.EmailService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,6 +15,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -41,6 +43,7 @@ public class EmailServiceImpl implements EmailService {
     private String resendFrom;
 
     @Override
+    @Async
     public void sendVerificationEmail(String toEmail, String token) {
         String link = backendUrl + "/api/users/verify?token=" + token;
         sendEmail(toEmail,
@@ -51,6 +54,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @Async
     public void sendPasswordResetEmail(String toEmail, String token) {
 
         String link = frontendUrl + "/reset-password?token=" + token;
@@ -76,7 +80,7 @@ style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15
 <td style="background:#4285F4;padding:25px;text-align:center;">
 
 <h1 style="margin:0;color:white;font-size:30px;">
-📝 Fundoo Notes
+Fundoo Notes
 </h1>
 
 </td>
@@ -122,7 +126,7 @@ Reset Password
 <div style="background:#f8f9fa;border-left:4px solid #4285F4;padding:15px;border-radius:5px;">
 
 <p style="margin:0;font-size:14px;color:#555;">
-⏰ <strong>This link is valid for 24 hours.</strong>
+<strong>This link is valid for 24 hours.</strong>
 </p>
 
 </div>
@@ -170,6 +174,7 @@ Regards,<br>
     }
 
     @Override
+    @Async
     public void sendReminderEmail(String toEmail, String noteTitle) {
 
         String link = frontendUrl + "/signin";
@@ -197,7 +202,7 @@ box-shadow:0 4px 15px rgba(0,0,0,0.15);">
 <td style="background:#FBBC05;padding:25px;text-align:center;">
 
 <h1 style="margin:0;color:white;font-size:30px;">
-⏰ Fundoo Notes Reminder
+Fundoo Notes Reminder
 </h1>
 
 </td>
@@ -229,7 +234,7 @@ margin:25px 0;
 ">
 
 <p style="margin:0;font-size:15px;color:#555;">
-📝 <strong>Note Title:</strong><br>
+<strong>Note Title:</strong><br>
 %s
 </p>
 
@@ -299,6 +304,7 @@ Regards,<br>
     }
 
     @Override
+    @Async
     public void sendCollaboratorEmail(String toEmail, String ownerEmail, String noteTitle) {
 
         String link = frontendUrl + "/signin";
@@ -326,7 +332,7 @@ box-shadow:0 4px 15px rgba(0,0,0,0.15);">
 <td style="background:#4285F4;padding:25px;text-align:center;">
 
 <h1 style="margin:0;color:white;font-size:30px;">
-📝 Fundoo Notes
+Fundoo Notes
 </h1>
 
 </td>
@@ -358,7 +364,7 @@ margin:25px 0;
 ">
 
 <p style="margin:0;font-size:15px;color:#555;">
-📌 <strong>Note Title:</strong><br>
+<strong>Note Title:</strong><br>
 %s
 </p>
 
@@ -430,28 +436,30 @@ Regards,<br>
     private void sendEmail(String to,
                            String subject,
                            String body) {
-        if (resendApiKey != null && !resendApiKey.trim().isEmpty()) {
-            sendEmailViaResend(to, subject, body);
-            return;
-        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (resendApiKey != null && !resendApiKey.trim().isEmpty()) {
+                    sendEmailViaResend(to, subject, body);
+                    return;
+                }
 
-        if (brevoApiKey != null && !brevoApiKey.trim().isEmpty()) {
-            sendEmailViaBrevo(to, subject, body);
-            return;
-        }
+                if (brevoApiKey != null && !brevoApiKey.trim().isEmpty()) {
+                    sendEmailViaBrevo(to, subject, body);
+                    return;
+                }
 
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(body, true);
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send email", e);
-        }
+                MimeMessage message = mailSender.createMimeMessage();
+                MimeMessageHelper helper =
+                        new MimeMessageHelper(message, true, "UTF-8");
+                helper.setFrom(fromEmail);
+                helper.setTo(to);
+                helper.setSubject(subject);
+                helper.setText(body, true);
+                mailSender.send(message);
+            } catch (Exception e) {
+                System.err.println("Failed to send email to " + to + ": " + e.getMessage());
+            }
+        });
     }
 
     private void sendEmailViaBrevo(String to, String subject, String htmlContent) {
